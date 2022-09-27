@@ -8,6 +8,16 @@ from textwrap import indent
 from typing import Any, Mapping, Optional
 
 from jinja2 import Template
+from reconcile.gql_definitions.cluster_peering.queries.cluster_peering import (
+    ClusterV1,
+    DEFINITION as CLUSTER_PEERING_QUERY,
+    query as cluster_peerings_query
+)
+from reconcile.gql_definitions.clusters.clusters import (
+  ClusterV1 as OtherClusterV1,
+  DEFINITION as CLUSTERS_MINIMAL_QUERY,
+  query as minimal_cluster_query,
+)
 
 from reconcile.utils import gql
 from reconcile.gql_definitions.jumphosts.jumphosts import (
@@ -841,57 +851,6 @@ CLUSTERS_QUERY = """
 )
 
 
-CLUSTERS_MINIMAL_QUERY = """
-{
-  clusters: clusters_v1
-  %s
-  {
-    name
-    serverUrl
-    consoleUrl
-    kibanaUrl
-    prometheusUrl
-    insecureSkipTLSVerify
-    jumpHost {
-      %s
-    }
-    managedGroups
-    ocm {
-      name
-    }
-    spec {
-        private
-    }
-    automationToken {
-      path
-      field
-      version
-      format
-    }
-    internal
-    disable {
-      integrations
-    }
-    auth {
-      service
-      ... on ClusterAuthGithubOrg_v1 {
-        org
-      }
-      ... on ClusterAuthGithubOrgTeam_v1 {
-        org
-        team
-      }
-      # ... on ClusterAuthOIDC_v1 {
-      # }
-    }
-  }
-}
-""" % (
-    indent(CLUSTER_FILTER_QUERY, 2 * " "),
-    indent(JUMPHOST_FIELDS, 6 * " "),
-)
-
-
 def get_clusters(minimal=False):
     """Returns all Clusters"""
     gqlapi = gql.get_api()
@@ -902,169 +861,26 @@ def get_clusters(minimal=False):
     return gqlapi.query(query)["clusters"]
 
 
-CLUSTER_PEERING_QUERY = """
-{
-  clusters: clusters_v1
-  {
-    path
-    name
-    ocm {
-      name
-      url
-      accessTokenClientId
-      accessTokenUrl
-      offlineToken {
-        path
-        field
-        format
-        version
-      }
-      blockedVersions
-    }
-    awsInfrastructureManagementAccounts {
-      account {
-        name
-        uid
-        terraformUsername
-        resourcesDefaultRegion
-        automationToken {
-          path
-          field
-          version
-          format
-        }
-      }
-      accessLevel
-      default
-    }
-
-    spec {
-      region
-    }
-    network {
-      vpc
-    }
-    peering {
-      connections {
-        name
-        provider
-        manageRoutes
-        delete
-        ... on ClusterPeeringConnectionAccount_v1 {
-          vpc {
-            account {
-              name
-              uid
-              terraformUsername
-              automationToken {
-                path
-                field
-                version
-                format
-              }
-            }
-            vpc_id
-            cidr_block
-            region
-          }
-          assumeRole
-        }
-        ... on ClusterPeeringConnectionAccountVPCMesh_v1 {
-          account {
-            name
-            uid
-            terraformUsername
-            automationToken {
-              path
-              field
-              version
-              format
-            }
-          }
-          tags
-        }
-        ... on ClusterPeeringConnectionAccountTGW_v1 {
-          account {
-            name
-            uid
-            terraformUsername
-            automationToken {
-              path
-              field
-              version
-              format
-            }
-          }
-          tags
-          cidrBlock
-          manageSecurityGroups
-          assumeRole
-        }
-        ... on ClusterPeeringConnectionClusterRequester_v1 {
-          cluster {
-            name
-            network {
-              vpc
-            }
-            spec {
-              region
-            }
-            awsInfrastructureManagementAccounts {
-              account {
-                name
-                uid
-                terraformUsername
-                resourcesDefaultRegion
-                automationToken {
-                  path
-                  field
-                  version
-                  format
-                }
-              }
-              accessLevel
-              default
-            }
-
-            peering {
-              connections {
-                name
-                provider
-                manageRoutes
-                ... on ClusterPeeringConnectionClusterAccepter_v1 {
-                  name
-                  cluster {
-                    name
-                  }
-                  awsInfrastructureManagementAccount {
-                    name
-                    uid
-                    terraformUsername
-                    automationToken {
-                      path
-                      field
-                      version
-                      format
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    disable {
-      integrations
-    }
-  }
-}
-"""
+def get_clusters_minimal_class(name: Optional[str]) -> list[OtherClusterV1]:
+    """Returns all Clusters"""
+    gqlapi = gql.get_api()
+    variables = {}
+    if name:
+        variables["name"] = name
+    return minimal_cluster_query(gqlapi, variables=variables).clusters or []
 
 
 def get_clusters_with_peering_settings() -> list[dict[str, Any]]:
     clusters = gql.get_api().query(CLUSTER_PEERING_QUERY)["clusters"]
     return [c for c in clusters if c.get("peering") is not None]
+
+
+def get_clusters_with_peering_settings_class() -> list[ClusterV1]:
+    api = gql.get_api()
+    query_data = cluster_peerings_query(api)
+    if not query_data.clusters:
+        return []
+    return [c for c in query_data.clusters if c.peering]
 
 
 @dataclass

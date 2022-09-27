@@ -1,0 +1,137 @@
+# qenerate: plugin=pydantic_v1
+
+query ClusterPeering {
+  clusters: clusters_v1
+  {
+    path
+    name
+    ocm {
+      name
+      url
+      accessTokenClientId
+      accessTokenUrl
+      offlineToken {
+        ... VaultSecret
+      }
+      blockedVersions
+    }
+    awsInfrastructureManagementAccounts {
+      account {
+        name
+        uid
+        terraformUsername
+        resourcesDefaultRegion
+        automationToken {
+          ... VaultSecret
+        }
+      }
+      accessLevel
+      default
+    }
+
+    spec {
+      region
+    }
+    network {
+      vpc
+    }
+    peering {
+      connections {
+        name
+        provider
+        manageRoutes
+        delete
+        ... on ClusterPeeringConnectionAccount_v1 {
+          vpc {
+            account {
+              name
+              uid
+              terraformUsername
+              automationToken {
+                ... VaultSecret
+              }
+            }
+            vpc_id
+            cidr_block
+            region
+          }
+          assumeRole
+        }
+        ... on ClusterPeeringConnectionAccountVPCMesh_v1 {
+          account {
+            name
+            uid
+            terraformUsername
+            automationToken {
+              ... VaultSecret
+            }
+          }
+          tags
+        }
+        ... on ClusterPeeringConnectionAccountTGW_v1 {
+          account {
+            name
+            uid
+            terraformUsername
+            automationToken {
+              ... VaultSecret
+            }
+          }
+          tags
+          cidrBlock
+          manageSecurityGroups
+          assumeRole
+        }
+        ... on ClusterPeeringConnectionClusterRequester_v1 {
+          cluster {
+            name
+            network {
+              vpc
+            }
+            spec {
+              region
+            }
+            awsInfrastructureManagementAccounts {
+              account {
+                name
+                uid
+                terraformUsername
+                resourcesDefaultRegion
+                automationToken {
+                  ... VaultSecret
+                }
+              }
+              accessLevel
+              default
+            }
+
+            peering {
+              connections {
+                name
+                provider
+                manageRoutes
+                ... on ClusterPeeringConnectionClusterAccepter_v1 {
+                  name
+                  cluster {
+                    name
+                  }
+                  awsInfrastructureManagementAccount {
+                    name
+                    uid
+                    terraformUsername
+                    automationToken {
+                      ... VaultSecret
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    disable {
+      integrations
+    }
+  }
+}
