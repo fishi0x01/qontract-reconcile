@@ -21,6 +21,7 @@ from sretoolbox.utils import retry
 
 from reconcile.utils.metrics import gitlab_request
 from reconcile.utils.secret_reader import SecretReader
+from reconcile.utils.gitlab_api_metrics import count_api_errors
 
 # The following line will suppress
 # `InsecureRequestWarning: Unverified HTTPS request is being made`
@@ -340,6 +341,7 @@ class GitLabApi:  # pylint: disable=too-many-public-methods
         gitlab_request.labels(integration=INTEGRATION_NAME).inc()
         return self.project.mergerequests.get(mr_id)
 
+    @count_api_errors(integration=INTEGRATION_NAME)
     def get_merge_requests(self, state):
         return self.get_items(self.project.mergerequests.list, state=state)
 
