@@ -132,6 +132,7 @@ def subscriber_builder(
             ref="",
             target_file_path=data.get(SUBSCRIBER_TARGET_PATH, ""),
             use_target_config_hash=True,
+            uid="uid",
         )
         subscriber.desired_hashes = []
         subscriber.desired_ref = data.get(REF, "")

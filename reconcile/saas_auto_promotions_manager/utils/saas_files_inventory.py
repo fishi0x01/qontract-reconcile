@@ -83,6 +83,10 @@ class SaasFilesInventory:
                         target_file_path=file_path,
                         ref=target.ref,
                         target_namespace=target.namespace,
+                        uid=target.uid(
+                            parent_saas_file_name=saas_file.name,
+                            parent_resource_template_name=resource_template.name,
+                        ),
                         # Note: this will be refactored at a later point.
                         # https://issues.redhat.com/browse/APPSRE-7516
                         use_target_config_hash=bool(saas_file.publish_job_logs),
