@@ -1,8 +1,10 @@
+import base64
 import hashlib
+import json
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from reconcile.gql_definitions.fragments.saas_target_namespace import (
     SaasTargetNamespace,
@@ -42,6 +44,7 @@ class Subscriber:
         target_file_path: str,
         target_namespace: SaasTargetNamespace,
         use_target_config_hash: bool,
+        uid: str,
     ):
         self.saas_name = saas_name
         self.template_name = template_name
@@ -52,6 +55,7 @@ class Subscriber:
         self.desired_ref = ""
         self.desired_hashes: list[ConfigHash] = []
         self.target_namespace = target_namespace
+        self.uid = uid
         self._content_hash = ""
         self._use_target_config_hash = use_target_config_hash
 
@@ -72,6 +76,61 @@ class Subscriber:
     def compute_desired_state(self) -> None:
         self._compute_desired_ref()
         self._compute_desired_config_hashes()
+
+    @staticmethod
+    def from_mr_data(data: str) -> list["Subscriber"]:
+        subscribers: list[Subscriber] = []
+        json_str = base64.b64decode(data).decode("utf-8")
+        m = json.loads(json_str)
+        for item in m:
+            sub = Subscriber(
+                saas_name=item["1"],
+                template_name=item["2"],
+                ref=item["3"],
+                target_file_path=item["4"],
+                use_target_config_hash=item["5"],
+                target_namespace=SaasTargetNamespace(**item["6"]),
+                uid=item["7"],
+            )
+            sub.desired_hashes = item["8"]
+            sub.desired_ref = item["9"]
+            subscribers.append(sub)
+        return subscribers
+
+    @staticmethod
+    def to_mr_data(subscribers: Iterable["Subscriber"]) -> str:
+        # TODO: encrypt this data to avoid any unwanted leaks and tampering with data
+        data: list[dict[str, Any]] = []
+        for sub in subscribers:
+            item: dict[str, Any] = {}
+            item["1"] = sub.saas_name
+            item["2"] = sub.template_name
+            item["3"] = sub.ref
+            item["4"] = sub.target_file_path
+            item["5"] = sub._use_target_config_hash
+            item["6"] = sub.target_namespace.dict(by_alias=True)
+            item["7"] = sub.uid
+            item["8"] = sub.desired_hashes
+            item["9"] = sub.desired_ref
+            data.append(item)
+        json_str = json.dumps(data)
+        return base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
+
+    def __eq__(self, other: "Subscriber") -> bool:
+        if not isinstance(other, Subscriber):
+            # don't attempt to compare against unrelated types
+            raise NotImplementedError
+        return (
+            self.saas_name == other.saas_name
+            and self.template_name == other.template_name
+            and self.ref == other.ref
+            and self.target_file_path == other.target_file_path
+            and self._use_target_config_hash == other._use_target_config_hash
+            and self.desired_ref == other.desired_ref
+            and self.desired_hashes == other.desired_hashes
+            and self.target_namespace == other.target_namespace
+            and self.uid == other.uid
+        )
 
     def _validate_deployment(
         self, publisher: Publisher, channel: Channel
