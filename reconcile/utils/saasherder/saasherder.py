@@ -1056,20 +1056,23 @@ class SaasHerder:  # pylint: disable=too-many-public-methods
             channels = [
                 self._channel_map[sub] for sub in target.promotion.subscribe or []
             ]
-            target_promotion = Promotion(
-                auto=target.promotion.auto,
-                publish=target.promotion.publish,
-                subscribe=channels,
-                promotion_data=target.promotion.promotion_data,
-                commit_sha=commit_sha,
-                saas_file=saas_file_name,
-                target_config_hash=target_config_hash,
-                saas_target_uid=target.uid(
-                    parent_resource_template_name=resource_template_name,
-                    parent_saas_file_name=saas_file_name,
-                ),
-                soak_days=target.promotion.soak_days or 0,
-            )
+            if not (target.promotion.auto and target.promotion.soak_days):
+                # Evaluating auto-promotion soak days happens in SAPM
+                # Doing it here would lead to blocked promotions for unrelated targets
+                target_promotion = Promotion(
+                    auto=target.promotion.auto,
+                    publish=target.promotion.publish,
+                    subscribe=channels,
+                    promotion_data=target.promotion.promotion_data,
+                    commit_sha=commit_sha,
+                    saas_file=saas_file_name,
+                    target_config_hash=target_config_hash,
+                    saas_target_uid=target.uid(
+                        parent_resource_template_name=resource_template_name,
+                        parent_saas_file_name=saas_file_name,
+                    ),
+                    soak_days=target.promotion.soak_days or 0,
+                )
         return resources, html_url, target_promotion
 
     def _assemble_channels(
