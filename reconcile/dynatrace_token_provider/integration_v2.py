@@ -1,4 +1,6 @@
 from reconcile.dynatrace_token_provider.meta import QONTRACT_INTEGRATION
+from reconcile.typed_queries.dynatrace_environments import get_dynatrace_environments
+from reconcile.typed_queries.ocm import get_ocm_environments
 from reconcile.utils.runtime.integration import (
     PydanticRunParams,
     QontractReconcileIntegration,
@@ -17,4 +19,9 @@ class DynatraceTokenProviderIntegrationV2(
         return QONTRACT_INTEGRATION
 
     def run(self, dry_run: bool) -> None:
-        pass
+        ocm_environments = get_ocm_environments()
+        dynatrace_environments = get_dynatrace_environments()
+
+        # TODO: select clusters
+        # TODO: fetch existing tokens from clusters
+        # TODO: update/create/delete tokens in clusters
