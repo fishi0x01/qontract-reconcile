@@ -1743,6 +1743,19 @@ class SaasHerder:  # pylint: disable=too-many-public-methods
                 desired_target_config["namespace"] = self.sanitize_namespace(
                     target.namespace
                 )
+                # Add publisher channels - we want to be sure to trigger a deployment
+                # if a publisher channel is added or renamed, so the deploy state will
+                # be added to S3 for the new channel.
+                # Before the GQL classes are introduced, the parameters attribute
+                # was a json string. Keep it that way to be backwards compatible.
+                publish_channels = (
+                    target.promotion.publish
+                    if target.promotion and target.promotion.publish
+                    else []
+                )
+                desired_target_config["publish"] = json.dumps(
+                    publish_channels, separators=(",", ":")
+                )
                 # add parent parameters to target config
                 # before the GQL classes are introduced, the parameters attribute
                 # was a json string. Keep it that way to be backwards compatible.
