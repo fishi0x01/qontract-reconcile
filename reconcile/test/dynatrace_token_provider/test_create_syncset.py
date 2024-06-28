@@ -27,6 +27,7 @@ def test_single_cluster_create_tokens(secret_reader: SecretReaderBase) -> None:
         external_id="external_id_a",
         organization_id="ocm_org_id_a",
         dt_tenant="dt_tenant_a",
+        token_spec_name="default",
     )
     given_clusters = [cluster]
     ocm_client = build_ocm_client(
@@ -64,6 +65,7 @@ def test_single_cluster_create_tokens(secret_reader: SecretReaderBase) -> None:
         secret_reader=secret_reader,
         dynatrace_client_by_tenant_id=dynatrace_client_by_tenant_id,
         ocm_client_by_env_name=ocm_client_by_env_name,
+        token_spec_by_name={},
     )
 
     integration.reconcile(dry_run=False, dependencies=dependencies)

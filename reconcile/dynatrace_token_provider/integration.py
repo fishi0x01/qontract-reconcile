@@ -10,6 +10,9 @@ from reconcile.dynatrace_token_provider.metrics import (
     DTPOrganizationErrorRate,
 )
 from reconcile.dynatrace_token_provider.ocm import Cluster, OCMClient
+from reconcile.gql_definitions.dynatrace_token_provider.token_specs import (
+    DynatraceTokenProviderTokenSpecV1,
+)
 from reconcile.utils import (
     metrics,
 )
@@ -58,6 +61,7 @@ class DynatraceTokenProviderIntegration(
             secret_reader=self.secret_reader,
             dynatrace_client_by_tenant_id={},
             ocm_client_by_env_name={},
+            token_spec_by_name={},
         )
         dependencies.populate()
         self.reconcile(dry_run=dry_run, dependencies=dependencies)
@@ -122,6 +126,16 @@ class DynatraceTokenProviderIntegration(
                                 tenant_id
                             ]
 
+                            token_spec = dependencies.token_spec_by_name.get(
+                                cluster.token_spec_name
+                            )
+                            if not token_spec:
+                                _expose_errors_as_service_log(
+                                    ocm_client,
+                                    cluster_uuid=cluster.external_id,
+                                    error=f"Token spec {cluster.token_spec_name} does not exist",
+                                )
+                                continue
                             if tenant_id not in existing_dtp_tokens:
                                 existing_dtp_tokens[tenant_id] = (
                                     dt_client.get_token_ids_for_name_prefix(
@@ -130,12 +144,13 @@ class DynatraceTokenProviderIntegration(
                                 )
 
                             self.process_cluster(
-                                dry_run,
-                                cluster,
-                                dt_client,
-                                ocm_client,
-                                existing_dtp_tokens[tenant_id],
-                                tenant_id,
+                                dry_run=dry_run,
+                                cluster=cluster,
+                                dt_client=dt_client,
+                                ocm_client=ocm_client,
+                                existing_dtp_tokens=existing_dtp_tokens[tenant_id],
+                                tenant_id=tenant_id,
+                                token_spec=token_spec,
                             )
                     except Exception as e:
                         unhandled_exceptions.append(
@@ -153,12 +168,14 @@ class DynatraceTokenProviderIntegration(
         ocm_client: OCMClient,
         existing_dtp_tokens: Iterable[str],
         tenant_id: str,
+        token_spec: DynatraceTokenProviderTokenSpecV1,
     ) -> None:
         existing_syncset = self.get_syncset(ocm_client, cluster)
         dt_api_url = f"https://{tenant_id}.live.dynatrace.com/api"
         if not existing_syncset:
             if not dry_run:
                 try:
+                    # TODO: use token_spec
                     (ingestion_token, operator_token) = self.create_dynatrace_tokens(
                         dt_client, cluster.external_id
                     )
