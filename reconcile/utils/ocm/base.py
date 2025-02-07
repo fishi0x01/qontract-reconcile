@@ -320,15 +320,11 @@ class OCMLabel(BaseModel):
     """
 
     id: str
-    internal: bool
-    updated_at: datetime
-    created_at: datetime
     href: str
     key: str
     value: str
-    type: str
     """
-    The type of the label, e.g. Subscription, Organization, Account.
+    The type of the label, e.g. Subscription, Organization, Account, Cluster.
     See subclasses.
     """
 
@@ -336,7 +332,22 @@ class OCMLabel(BaseModel):
         return f"{self.key}={self.value}"
 
 
-class OCMOrganizationLabel(OCMLabel):
+class OCMLabelWithTimestamps(OCMLabel):
+    type: str
+    internal: bool
+    updated_at: datetime
+    created_at: datetime
+
+
+class OCMClusterLabel(OCMLabel):
+    """
+    Represents a label attached to a cluster.
+    """
+
+    kind: str
+
+
+class OCMOrganizationLabel(OCMLabelWithTimestamps):
     """
     Represents a label attached to an organization.
     """
@@ -344,7 +355,7 @@ class OCMOrganizationLabel(OCMLabel):
     organization_id: str
 
 
-class OCMSubscriptionLabel(OCMLabel):
+class OCMSubscriptionLabel(OCMLabelWithTimestamps):
     """
     Represents a label attached to a subscription.
     """
@@ -352,7 +363,7 @@ class OCMSubscriptionLabel(OCMLabel):
     subscription_id: str
 
 
-class OCMAccountLabel(OCMLabel):
+class OCMAccountLabel(OCMLabelWithTimestamps):
     """
     Represents a label attached to an account.
     """

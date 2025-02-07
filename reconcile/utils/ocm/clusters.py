@@ -12,6 +12,7 @@ from reconcile.utils.ocm.base import (
     ClusterDetails,
     FleetManagerServiceCluster,
     OCMCluster,
+    OCMClusterLabel,
     OCMClusterState,
     OCMOrganizationLabel,
     OCMSubscriptionLabel,
@@ -148,6 +149,16 @@ def get_provision_shard_for_cluster_id(
 ) -> ProvisionShard:
     data = ocm_api.get(api_path=f"/api/clusters_mgmt/v1/clusters/{id}/provision_shard")
     return ProvisionShard(**data)
+
+
+def get_cluster_labels_for_cluster_id(
+    ocm_api: OCMBaseClient,
+    id: str,
+) -> list[OCMClusterLabel]:
+    data = ocm_api.get(
+        api_path=f"/api/clusters_mgmt/v1/clusters/{id}/external_configuration/labels"
+    )
+    return [OCMClusterLabel(**d) for d in data.get("items") or []]
 
 
 def get_service_clusters(
