@@ -84,7 +84,7 @@ def reconcile_slack_usergroups_task(
         )
 
         # Execute reconciliation
-        result = service.reconcile(
+        result, applied_actions = service.reconcile(
             workspaces=workspaces,
             dry_run=dry_run,
         )
@@ -103,7 +103,7 @@ def reconcile_slack_usergroups_task(
                 event_manager=event_manager,
                 integration="slack-usergroups",
                 source=__name__,
-                applied_actions=result.applied_actions,
+                applied_actions=applied_actions,
                 errors=result.errors,
             )
 
