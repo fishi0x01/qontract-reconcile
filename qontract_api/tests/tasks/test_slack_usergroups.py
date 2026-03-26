@@ -155,16 +155,15 @@ def _make_action(
 
 
 def _make_result(
-    applied_actions: list[SlackUsergroupActionCreate] | None = None,
+    actions: list[SlackUsergroupActionCreate] | None = None,
     errors: list[str] | None = None,
 ) -> SlackUsergroupsTaskResult:
-    applied = applied_actions or []
+    acts = actions or []
     errs = errors or []
     return SlackUsergroupsTaskResult(
         status=TaskStatus.FAILED if errs else TaskStatus.SUCCESS,
-        actions=applied,
-        applied_actions=applied,
-        applied_count=len(applied),
+        actions=acts,
+        applied_count=len(acts),
         errors=errs,
     )
 
@@ -188,7 +187,7 @@ def test_publishes_success_event_for_applied_action(
     """A success event is published for each successfully applied action."""
     action = _make_action()
     mock_service_cls.return_value.reconcile.return_value = _make_result(
-        applied_actions=[action]
+        actions=[action]
     )
     mock_event_manager = MagicMock()
     mock_get_event_manager.return_value = mock_event_manager
@@ -248,13 +247,10 @@ def test_publishes_both_event_types_on_partial_failure(
     mock_get_event_manager: MagicMock,
     sample_workspaces: list[SlackWorkspace],
 ) -> None:
-    """Both success and error events are published when some actions apply and some fail."""
+    """Both action and error events are published when there are actions and errors."""
     action = _make_action()
-    mock_service_cls.return_value.reconcile.return_value = SlackUsergroupsTaskResult(
-        status=TaskStatus.FAILED,
-        actions=[action, _make_action(usergroup="team-b")],
-        applied_actions=[action],
-        applied_count=1,
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        actions=[action],
         errors=["workspace-1/team-b: Failed to execute action create: Slack API error"],
     )
     mock_event_manager = MagicMock()
@@ -288,7 +284,7 @@ def test_no_events_published_in_dry_run(
 ) -> None:
     """No events are published in dry-run mode."""
     mock_service_cls.return_value.reconcile.return_value = _make_result(
-        applied_actions=[_make_action()],
+        actions=[_make_action()],
         errors=["some error"],
     )
     mock_event_manager = MagicMock()
@@ -315,7 +311,7 @@ def test_no_events_published_when_event_manager_disabled(
 ) -> None:
     """No events are published when the event manager is not configured (returns None)."""
     mock_service_cls.return_value.reconcile.return_value = _make_result(
-        applied_actions=[_make_action()],
+        actions=[_make_action()],
         errors=["some error"],
     )
     mock_get_event_manager.return_value = None

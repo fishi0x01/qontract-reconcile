@@ -103,7 +103,7 @@ def reconcile_slack_usergroups_task(
                 event_manager=event_manager,
                 integration="slack-usergroups",
                 source=__name__,
-                applied_actions=result.applied_actions,
+                applied_actions=result.actions,
                 errors=result.errors,
             )
 

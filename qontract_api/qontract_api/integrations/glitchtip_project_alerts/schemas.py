@@ -60,15 +60,7 @@ class GlitchtipProjectAlertsTaskResult(TaskResult, frozen=True):
         | GlitchtipAlertActionDelete
     ] = Field(
         default=[],
-        description="All actions calculated (desired - current), including any that failed to apply.",
-    )
-    applied_actions: list[
-        GlitchtipAlertActionCreate
-        | GlitchtipAlertActionUpdate
-        | GlitchtipAlertActionDelete
-    ] = Field(
-        default=[],
-        description="Actions that were successfully applied (non-dry-run only).",
+        description="List of actions calculated/performed",
     )
 
 

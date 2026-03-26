@@ -203,10 +203,10 @@ def test_reconcile_task_publishes_events_on_non_dry_run(
     mock_event_manager.publish_event.assert_called_once()
     call_args = mock_event_manager.publish_event.call_args[0][0]
     assert "glitchtip-project-alerts" in call_args.type
-    assert isinstance(result.applied_actions[0], GlitchtipAlertActionCreate)
+    assert isinstance(result.actions[0], GlitchtipAlertActionCreate)
     assert (
         call_args.type
-        == f"qontract-api.glitchtip-project-alerts.{result.applied_actions[0].action_type}"
+        == f"qontract-api.glitchtip-project-alerts.{result.actions[0].action_type}"
     )
 
 
@@ -302,16 +302,15 @@ def _make_action(
 
 
 def _make_result(
-    applied_actions: list[GlitchtipAlertActionCreate] | None = None,
+    actions: list[GlitchtipAlertActionCreate] | None = None,
     errors: list[str] | None = None,
 ) -> GlitchtipProjectAlertsTaskResult:
-    applied = applied_actions or []
+    acts = actions or []
     errs = errors or []
     return GlitchtipProjectAlertsTaskResult(
         status=TaskStatus.FAILED if errs else TaskStatus.SUCCESS,
-        actions=applied,
-        applied_actions=applied,
-        applied_count=len(applied),
+        actions=acts,
+        applied_count=len(acts),
         errors=errs,
     )
 
@@ -365,16 +364,11 @@ def test_publishes_both_event_types_on_partial_failure(
     mock_get_event_manager: MagicMock,
     sample_instances: list[GlitchtipInstance],
 ) -> None:
-    """Both success and error events are published when some actions apply and some fail."""
+    """Both action and error events are published when there are actions and errors."""
     action = _make_action()
-    mock_service_cls.return_value.reconcile.return_value = (
-        GlitchtipProjectAlertsTaskResult(
-            status=TaskStatus.FAILED,
-            actions=[action, _make_action(alert_name="alert-2")],
-            applied_actions=[action],
-            applied_count=1,
-            errors=["inst/org/proj/alert-2: Failed to execute action create: 500"],
-        )
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        actions=[action],
+        errors=["inst/org/proj/alert-2: Failed to execute action create: 500"],
     )
     mock_event_manager = MagicMock()
     mock_get_event_manager.return_value = mock_event_manager
@@ -409,7 +403,7 @@ def test_no_events_published_in_dry_run(
 ) -> None:
     """No events are published in dry-run mode."""
     mock_service_cls.return_value.reconcile.return_value = _make_result(
-        applied_actions=[_make_action()],
+        actions=[_make_action()],
         errors=["some error"],
     )
     mock_event_manager = MagicMock()

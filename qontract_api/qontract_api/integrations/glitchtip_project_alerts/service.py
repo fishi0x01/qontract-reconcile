@@ -317,11 +317,7 @@ class GlitchtipProjectAlertsService:
             | GlitchtipAlertActionUpdate
             | GlitchtipAlertActionDelete
         ] = []
-        applied_actions: list[
-            GlitchtipAlertActionCreate
-            | GlitchtipAlertActionUpdate
-            | GlitchtipAlertActionDelete
-        ] = []
+        applied_count = 0
         errors: list[str] = []
 
         for instance in instances:
@@ -352,7 +348,7 @@ class GlitchtipProjectAlertsService:
                             action=action,
                             desired_orgs=instance_desired,
                         )
-                        applied_actions.append(action)
+                        applied_count += 1
                     except Exception as e:
                         error_msg = (
                             f"{action.instance}/{action.organization}/{action.project}"
@@ -364,7 +360,6 @@ class GlitchtipProjectAlertsService:
         return GlitchtipProjectAlertsTaskResult(
             status=TaskStatus.FAILED if errors else TaskStatus.SUCCESS,
             actions=all_actions,
-            applied_actions=applied_actions,
-            applied_count=len(applied_actions),
+            applied_count=applied_count,
             errors=errors,
         )

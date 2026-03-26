@@ -202,7 +202,7 @@ class SlackUsergroupsService:
             SlackUsergroupsTaskResult with actions, applied_actions, and errors
         """
         all_actions: list[SlackUsergroupAction] = []
-        applied_actions: list[SlackUsergroupAction] = []
+        applied_count = 0
         errors: list[str] = []
 
         # Process each workspace
@@ -219,13 +219,12 @@ class SlackUsergroupsService:
                 )
                 desired_state = slack.clean_slack_usergroups(workspace.usergroups)
                 logger.info(f"Calculating actions for workspace: {workspace.name}")
-                all_actions.extend(
-                    self._calculate_update_actions(
-                        workspace=workspace.name,
-                        current_state=current_state,
-                        desired_state=desired_state,
-                    )
+                workspace_actions = self._calculate_update_actions(
+                    workspace=workspace.name,
+                    current_state=current_state,
+                    desired_state=desired_state,
                 )
+                all_actions.extend(workspace_actions)
             except Exception as e:
                 error_msg = f"{workspace.name}: Unexpected error: {e}"
                 logger.exception(error_msg)
@@ -233,11 +232,11 @@ class SlackUsergroupsService:
                 continue
 
             # Execute actions if not dry_run
-            if not dry_run and all_actions:
-                for action in all_actions:
+            if not dry_run and workspace_actions:
+                for action in workspace_actions:
                     try:
                         self._execute_action(slack=slack, action=action)
-                        applied_actions.append(action)
+                        applied_count += 1
                     except Exception as e:
                         error_msg = f"{action.workspace}/{action.usergroup}: Failed to execute action {action.action_type}: {e}"
                         logger.exception(error_msg)
@@ -246,7 +245,6 @@ class SlackUsergroupsService:
         return SlackUsergroupsTaskResult(
             status=TaskStatus.FAILED if errors else TaskStatus.SUCCESS,
             actions=all_actions,
-            applied_actions=applied_actions,
-            applied_count=len(applied_actions),
+            applied_count=applied_count,
             errors=errors,
         )

@@ -109,7 +109,7 @@ def reconcile_glitchtip_project_alerts_task(
                 event_manager=event_manager,
                 integration="glitchtip-project-alerts",
                 source=__name__,
-                applied_actions=result.applied_actions,
+                applied_actions=result.actions,
                 errors=result.errors,
             )
 
