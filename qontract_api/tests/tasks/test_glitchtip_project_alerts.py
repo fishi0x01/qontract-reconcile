@@ -203,10 +203,10 @@ def test_reconcile_task_publishes_events_on_non_dry_run(
     mock_event_manager.publish_event.assert_called_once()
     call_args = mock_event_manager.publish_event.call_args[0][0]
     assert "glitchtip-project-alerts" in call_args.type
-    assert isinstance(result.actions[0], GlitchtipAlertActionCreate)
+    assert isinstance(result.applied_actions[0], GlitchtipAlertActionCreate)
     assert (
         call_args.type
-        == f"qontract-api.glitchtip-project-alerts.{result.actions[0].action_type}"
+        == f"qontract-api.glitchtip-project-alerts.{result.applied_actions[0].action_type}"
     )
 
 
@@ -304,15 +304,16 @@ def _make_action(
 def _make_result(
     applied_actions: list[GlitchtipAlertActionCreate] | None = None,
     errors: list[str] | None = None,
-) -> tuple[GlitchtipProjectAlertsTaskResult, list[GlitchtipAlertActionCreate]]:
+) -> GlitchtipProjectAlertsTaskResult:
     applied = applied_actions or []
     errs = errors or []
     return GlitchtipProjectAlertsTaskResult(
         status=TaskStatus.FAILED if errs else TaskStatus.SUCCESS,
         actions=applied,
+        applied_actions=applied,
         applied_count=len(applied),
         errors=errs,
-    ), applied
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -370,10 +371,10 @@ def test_publishes_both_event_types_on_partial_failure(
         GlitchtipProjectAlertsTaskResult(
             status=TaskStatus.FAILED,
             actions=[action, _make_action(alert_name="alert-2")],
+            applied_actions=[action],
             applied_count=1,
             errors=["inst/org/proj/alert-2: Failed to execute action create: 500"],
-        ),
-        [action],
+        )
     )
     mock_event_manager = MagicMock()
     mock_get_event_manager.return_value = mock_event_manager

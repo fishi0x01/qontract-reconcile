@@ -119,7 +119,7 @@ def test_reconcile_empty_workspaces_dry_run(
     service: SlackUsergroupsService, mock_slack_client_factory: MagicMock
 ) -> None:
     """Test reconcile with no workspaces returns empty result."""
-    result, _ = service.reconcile(workspaces=[], dry_run=True)
+    result = service.reconcile(workspaces=[], dry_run=True)
 
     assert result.status == TaskStatus.SUCCESS
     assert result.actions == []
@@ -145,7 +145,7 @@ def test_reconcile_no_usergroups_dry_run(
     mock_slack_client.get_slack_usergroups.return_value = []
     mock_slack_client.clean_slack_usergroups.return_value = []
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=True)
+    result = service.reconcile(workspaces=[workspace], dry_run=True)
 
     assert result.status == TaskStatus.SUCCESS
     assert result.actions == []
@@ -184,7 +184,7 @@ def test_reconcile_create_usergroup_dry_run(
     # Mock: desired state = usergroup should exist
     mock_slack_client.clean_slack_usergroups.return_value = workspace.usergroups
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=True)
+    result = service.reconcile(workspaces=[workspace], dry_run=True)
 
     assert result.status == TaskStatus.SUCCESS
     assert len(result.actions) == 1
@@ -225,7 +225,7 @@ def test_reconcile_create_usergroup_apply(
     # Mock: desired state = usergroup should exist
     mock_slack_client.clean_slack_usergroups.return_value = workspace.usergroups
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=False)
+    result = service.reconcile(workspaces=[workspace], dry_run=False)
 
     assert result.status == TaskStatus.SUCCESS
     assert len(result.actions) == 1
@@ -274,7 +274,7 @@ def test_reconcile_update_users_dry_run(
     # Mock: desired state = usergroup with updated users
     mock_slack_client.clean_slack_usergroups.return_value = workspace.usergroups
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=True)
+    result = service.reconcile(workspaces=[workspace], dry_run=True)
 
     assert result.status == TaskStatus.SUCCESS
     assert len(result.actions) == 1
@@ -324,7 +324,7 @@ def test_reconcile_update_users_apply(
     # Mock: desired state = usergroup with new users
     mock_slack_client.clean_slack_usergroups.return_value = workspace.usergroups
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=False)
+    result = service.reconcile(workspaces=[workspace], dry_run=False)
 
     assert result.status == TaskStatus.SUCCESS
     assert len(result.actions) == 1
@@ -374,7 +374,7 @@ def test_reconcile_update_metadata_dry_run(
     # Mock: desired state = usergroup with updated metadata
     mock_slack_client.clean_slack_usergroups.return_value = workspace.usergroups
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=True)
+    result = service.reconcile(workspaces=[workspace], dry_run=True)
 
     assert result.status == TaskStatus.SUCCESS
     assert len(result.actions) == 1
@@ -426,7 +426,7 @@ def test_reconcile_multiple_actions_dry_run(
     # Mock: desired state
     mock_slack_client.clean_slack_usergroups.return_value = workspace.usergroups
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=True)
+    result = service.reconcile(workspaces=[workspace], dry_run=True)
 
     assert result.status == TaskStatus.SUCCESS
     assert len(result.actions) == 2  # Update users + Update metadata
@@ -459,7 +459,7 @@ def test_reconcile_error_in_workspace_processing(
     # Mock: create_slack_workspace_client raises exception (simulates secret read error)
     mock_slack_client_factory.side_effect = Exception("Secret read error")
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=True)
+    result = service.reconcile(workspaces=[workspace], dry_run=True)
 
     assert result.status == TaskStatus.FAILED
     assert result.actions == []
@@ -497,7 +497,7 @@ def test_reconcile_error_in_action_execution(
     # Mock: create_usergroup raises exception
     mock_slack_client.create_usergroup.side_effect = Exception("Slack API error")
 
-    result, _ = service.reconcile(workspaces=[workspace], dry_run=False)
+    result = service.reconcile(workspaces=[workspace], dry_run=False)
 
     assert result.status == TaskStatus.FAILED
     assert len(result.actions) == 1  # Action was generated

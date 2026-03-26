@@ -124,7 +124,7 @@ def test_reconcile_no_changes(
     test_instance: GlitchtipInstance,
 ) -> None:
     """Test reconcile with no changes needed."""
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[test_instance],
         dry_run=True,
     )
@@ -167,7 +167,7 @@ def test_reconcile_creates_new_alert(
         ],
     )
 
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[instance],
         dry_run=True,
     )
@@ -189,7 +189,7 @@ def test_reconcile_deletes_removed_alert(
         ProjectAlert(pk=42, name="old-alert", timespan_minutes=5, quantity=50)
     ]
 
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[test_instance],
         dry_run=True,
     )
@@ -234,7 +234,7 @@ def test_reconcile_updates_changed_alert(
         ],
     )
 
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[instance],
         dry_run=True,
     )
@@ -277,7 +277,7 @@ def test_reconcile_skips_unknown_organization(
         ],
     )
 
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[instance],
         dry_run=True,
     )
@@ -296,7 +296,7 @@ def test_reconcile_handles_instance_error(
         "Connection failed"
     )
 
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[test_instance],
         dry_run=True,
     )
@@ -341,7 +341,7 @@ def test_reconcile_applies_actions_when_not_dry_run(
         ],
     )
 
-    result, _ = service.reconcile(
+    result = service.reconcile(
         instances=[instance],
         dry_run=False,
     )

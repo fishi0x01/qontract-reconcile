@@ -90,7 +90,7 @@ def reconcile_glitchtip_project_alerts_task(
         )
 
         # Execute reconciliation
-        result, applied_actions = service.reconcile(
+        result = service.reconcile(
             instances=instances,
             dry_run=dry_run,
         )
@@ -109,7 +109,7 @@ def reconcile_glitchtip_project_alerts_task(
                 event_manager=event_manager,
                 integration="glitchtip-project-alerts",
                 source=__name__,
-                applied_actions=applied_actions,
+                applied_actions=result.applied_actions,
                 errors=result.errors,
             )
 

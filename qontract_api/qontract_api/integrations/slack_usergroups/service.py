@@ -188,7 +188,7 @@ class SlackUsergroupsService:
         workspaces: list[SlackWorkspace],
         *,
         dry_run: bool = True,
-    ) -> tuple[SlackUsergroupsTaskResult, list[SlackUsergroupAction]]:
+    ) -> SlackUsergroupsTaskResult:
         """Reconcile Slack usergroups.
 
         Main reconciliation logic: compare desired state vs current state,
@@ -199,9 +199,7 @@ class SlackUsergroupsService:
             dry_run: If True, only calculate actions without executing (keyword-only)
 
         Returns:
-            Tuple of (SlackUsergroupsTaskResult, applied_actions).
-            applied_actions contains only the actions that were successfully executed
-            (empty for dry-run). Use this list for event publishing in the task layer.
+            SlackUsergroupsTaskResult with actions, applied_actions, and errors
         """
         all_actions: list[SlackUsergroupAction] = []
         applied_actions: list[SlackUsergroupAction] = []
@@ -248,6 +246,7 @@ class SlackUsergroupsService:
         return SlackUsergroupsTaskResult(
             status=TaskStatus.FAILED if errors else TaskStatus.SUCCESS,
             actions=all_actions,
+            applied_actions=applied_actions,
             applied_count=len(applied_actions),
             errors=errors,
-        ), applied_actions
+        )

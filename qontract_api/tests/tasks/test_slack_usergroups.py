@@ -157,15 +157,16 @@ def _make_action(
 def _make_result(
     applied_actions: list[SlackUsergroupActionCreate] | None = None,
     errors: list[str] | None = None,
-) -> tuple[SlackUsergroupsTaskResult, list[SlackUsergroupActionCreate]]:
+) -> SlackUsergroupsTaskResult:
     applied = applied_actions or []
     errs = errors or []
     return SlackUsergroupsTaskResult(
         status=TaskStatus.FAILED if errs else TaskStatus.SUCCESS,
         actions=applied,
+        applied_actions=applied,
         applied_count=len(applied),
         errors=errs,
-    ), applied
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -249,16 +250,12 @@ def test_publishes_both_event_types_on_partial_failure(
 ) -> None:
     """Both success and error events are published when some actions apply and some fail."""
     action = _make_action()
-    mock_service_cls.return_value.reconcile.return_value = (
-        SlackUsergroupsTaskResult(
-            status=TaskStatus.FAILED,
-            actions=[action, _make_action(usergroup="team-b")],
-            applied_count=1,
-            errors=[
-                "workspace-1/team-b: Failed to execute action create: Slack API error"
-            ],
-        ),
-        [action],
+    mock_service_cls.return_value.reconcile.return_value = SlackUsergroupsTaskResult(
+        status=TaskStatus.FAILED,
+        actions=[action, _make_action(usergroup="team-b")],
+        applied_actions=[action],
+        applied_count=1,
+        errors=["workspace-1/team-b: Failed to execute action create: Slack API error"],
     )
     mock_event_manager = MagicMock()
     mock_get_event_manager.return_value = mock_event_manager

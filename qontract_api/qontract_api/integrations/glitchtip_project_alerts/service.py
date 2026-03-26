@@ -299,14 +299,7 @@ class GlitchtipProjectAlertsService:
         instances: list[GlitchtipInstance],
         *,
         dry_run: bool = True,
-    ) -> tuple[
-        GlitchtipProjectAlertsTaskResult,
-        list[
-            GlitchtipAlertActionCreate
-            | GlitchtipAlertActionUpdate
-            | GlitchtipAlertActionDelete
-        ],
-    ]:
+    ) -> GlitchtipProjectAlertsTaskResult:
         """Reconcile Glitchtip project alerts.
 
         Main reconciliation logic: compare desired state vs current state,
@@ -317,9 +310,7 @@ class GlitchtipProjectAlertsService:
             dry_run: If True, only calculate actions without executing (keyword-only)
 
         Returns:
-            Tuple of (GlitchtipProjectAlertsTaskResult, applied_actions).
-            applied_actions contains only the actions that were successfully executed
-            (empty for dry-run). Use this list for event publishing in the task layer.
+            GlitchtipProjectAlertsTaskResult with actions, applied_actions, and errors
         """
         all_actions: list[
             GlitchtipAlertActionCreate
@@ -373,6 +364,7 @@ class GlitchtipProjectAlertsService:
         return GlitchtipProjectAlertsTaskResult(
             status=TaskStatus.FAILED if errors else TaskStatus.SUCCESS,
             actions=all_actions,
+            applied_actions=applied_actions,
             applied_count=len(applied_actions),
             errors=errors,
-        ), applied_actions
+        )
