@@ -1,10 +1,12 @@
 """Unit tests for Slack usergroups Celery task."""
 
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from qontract_api.integrations.slack_usergroups.schemas import (
+    SlackUsergroupActionCreate,
     SlackUsergroupsTaskResult,
 )
 from qontract_api.integrations.slack_usergroups.tasks import (
@@ -128,3 +130,200 @@ def test_reconcile_task_dry_run_success(
 
     # Verify factory function was called with correct arguments
     assert mock_factory_function.called
+
+
+# ---------------------------------------------------------------------------
+# Event publishing — helpers for service-level mocking
+# ---------------------------------------------------------------------------
+
+
+def _task_func() -> Callable:
+    """Return the unwrapped task function (bypasses Celery + deduplication decorators)."""
+    return reconcile_slack_usergroups_task.__wrapped__.__wrapped__
+
+
+def _make_action(
+    workspace: str = "workspace-1",
+    usergroup: str = "oncall",
+) -> SlackUsergroupActionCreate:
+    return SlackUsergroupActionCreate(
+        workspace=workspace,
+        usergroup=usergroup,
+        users=["alice@example.com"],
+        description="",
+    )
+
+
+def _make_result(
+    applied_actions: list[SlackUsergroupActionCreate] | None = None,
+    errors: list[str] | None = None,
+) -> SlackUsergroupsTaskResult:
+    applied = applied_actions or []
+    errs = errors or []
+    return SlackUsergroupsTaskResult(
+        status=TaskStatus.FAILED if errs else TaskStatus.SUCCESS,
+        actions=applied,
+        applied_actions=applied,
+        applied_count=len(applied),
+        errors=errs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Event publishing — success events
+# ---------------------------------------------------------------------------
+
+
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_event_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_secret_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_cache")
+@patch("qontract_api.integrations.slack_usergroups.tasks.SlackUsergroupsService")
+def test_publishes_success_event_for_applied_action(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_workspaces: list[SlackWorkspace],
+) -> None:
+    """A success event is published for each successfully applied action."""
+    action = _make_action()
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        applied_actions=[action]
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-ok"
+
+    _task_func()(mock_self, sample_workspaces, dry_run=False)
+
+    mock_event_manager.publish_event.assert_called_once()
+    published = mock_event_manager.publish_event.call_args[0][0]
+    assert published.type == "qontract-api.slack-usergroups.create"
+
+
+# ---------------------------------------------------------------------------
+# Event publishing — error events
+# ---------------------------------------------------------------------------
+
+
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_event_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_secret_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_cache")
+@patch("qontract_api.integrations.slack_usergroups.tasks.SlackUsergroupsService")
+def test_publishes_error_event_for_each_error(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_workspaces: list[SlackWorkspace],
+) -> None:
+    """An error event is published for each reconciliation error."""
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        errors=["workspace-1/oncall: Failed to execute action create: Slack API error"]
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-err"
+
+    _task_func()(mock_self, sample_workspaces, dry_run=False)
+
+    mock_event_manager.publish_event.assert_called_once()
+    published = mock_event_manager.publish_event.call_args[0][0]
+    assert published.type == "qontract-api.slack-usergroups.error"
+    assert "Failed to execute" in published.data["error"]
+
+
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_event_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_secret_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_cache")
+@patch("qontract_api.integrations.slack_usergroups.tasks.SlackUsergroupsService")
+def test_publishes_both_event_types_on_partial_failure(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_workspaces: list[SlackWorkspace],
+) -> None:
+    """Both success and error events are published when some actions apply and some fail."""
+    action = _make_action()
+    mock_service_cls.return_value.reconcile.return_value = SlackUsergroupsTaskResult(
+        status=TaskStatus.FAILED,
+        actions=[action, _make_action(usergroup="team-b")],
+        applied_actions=[action],
+        applied_count=1,
+        errors=["workspace-1/team-b: Failed to execute action create: Slack API error"],
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-partial"
+
+    _task_func()(mock_self, sample_workspaces, dry_run=False)
+
+    assert mock_event_manager.publish_event.call_count == 2
+    event_types = {
+        c[0][0].type for c in mock_event_manager.publish_event.call_args_list
+    }
+    assert event_types == {
+        "qontract-api.slack-usergroups.create",
+        "qontract-api.slack-usergroups.error",
+    }
+
+
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_event_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_secret_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_cache")
+@patch("qontract_api.integrations.slack_usergroups.tasks.SlackUsergroupsService")
+def test_no_events_published_in_dry_run(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_workspaces: list[SlackWorkspace],
+) -> None:
+    """No events are published in dry-run mode."""
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        applied_actions=[_make_action()],
+        errors=["some error"],
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-dry"
+
+    _task_func()(mock_self, sample_workspaces, dry_run=True)
+
+    mock_event_manager.publish_event.assert_not_called()
+
+
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_event_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_secret_manager")
+@patch("qontract_api.integrations.slack_usergroups.tasks.get_cache")
+@patch("qontract_api.integrations.slack_usergroups.tasks.SlackUsergroupsService")
+def test_no_events_published_when_event_manager_disabled(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_workspaces: list[SlackWorkspace],
+) -> None:
+    """No events are published when the event manager is not configured (returns None)."""
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        applied_actions=[_make_action()],
+        errors=["some error"],
+    )
+    mock_get_event_manager.return_value = None
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-no-em"
+
+    result = _task_func()(mock_self, sample_workspaces, dry_run=False)
+    assert (
+        result.status == TaskStatus.FAILED
+    )  # errors present → failed, but no exception raised

@@ -1,5 +1,6 @@
 """Unit tests for Glitchtip project alerts Celery task."""
 
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -202,10 +203,10 @@ def test_reconcile_task_publishes_events_on_non_dry_run(
     mock_event_manager.publish_event.assert_called_once()
     call_args = mock_event_manager.publish_event.call_args[0][0]
     assert "glitchtip-project-alerts" in call_args.type
-    assert isinstance(result.actions[0], GlitchtipAlertActionCreate)
+    assert isinstance(result.applied_actions[0], GlitchtipAlertActionCreate)
     assert (
         call_args.type
-        == f"qontract-api.glitchtip-project-alerts.{result.actions[0].action_type}"
+        == f"qontract-api.glitchtip-project-alerts.{result.applied_actions[0].action_type}"
     )
 
 
@@ -274,3 +275,149 @@ def test_reconcile_task_no_events_when_event_manager_is_none(
     assert isinstance(result, GlitchtipProjectAlertsTaskResult)
     assert result.status == TaskStatus.SUCCESS
     assert result.applied_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Event publishing — helpers for service-level mocking
+# ---------------------------------------------------------------------------
+
+
+def _task_func() -> Callable:
+    """Return the unwrapped task function (bypasses Celery + deduplication decorators)."""
+    return reconcile_glitchtip_project_alerts_task.__wrapped__.__wrapped__
+
+
+def _make_action(
+    instance: str = "inst",
+    organization: str = "org",
+    project: str = "proj",
+    alert_name: str = "alert",
+) -> GlitchtipAlertActionCreate:
+    return GlitchtipAlertActionCreate(
+        instance=instance,
+        organization=organization,
+        project=project,
+        alert_name=alert_name,
+    )
+
+
+def _make_result(
+    applied_actions: list[GlitchtipAlertActionCreate] | None = None,
+    errors: list[str] | None = None,
+) -> GlitchtipProjectAlertsTaskResult:
+    applied = applied_actions or []
+    errs = errors or []
+    return GlitchtipProjectAlertsTaskResult(
+        status=TaskStatus.FAILED if errs else TaskStatus.SUCCESS,
+        actions=applied,
+        applied_actions=applied,
+        applied_count=len(applied),
+        errors=errs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Event publishing — error events
+# ---------------------------------------------------------------------------
+
+
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_event_manager")
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_secret_manager")
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_cache")
+@patch(
+    "qontract_api.integrations.glitchtip_project_alerts.tasks.GlitchtipProjectAlertsService"
+)
+def test_publishes_error_event_for_each_error(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_instances: list[GlitchtipInstance],
+) -> None:
+    """An error event is published for each reconciliation error."""
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        errors=["inst/org/proj/alert: Failed to execute action create: 500"]
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-err"
+
+    _task_func()(mock_self, sample_instances, dry_run=False)
+
+    mock_event_manager.publish_event.assert_called_once()
+    published = mock_event_manager.publish_event.call_args[0][0]
+    assert published.type == "qontract-api.glitchtip-project-alerts.error"
+    assert "Failed to execute" in published.data["error"]
+
+
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_event_manager")
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_secret_manager")
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_cache")
+@patch(
+    "qontract_api.integrations.glitchtip_project_alerts.tasks.GlitchtipProjectAlertsService"
+)
+def test_publishes_both_event_types_on_partial_failure(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_instances: list[GlitchtipInstance],
+) -> None:
+    """Both success and error events are published when some actions apply and some fail."""
+    action = _make_action()
+    mock_service_cls.return_value.reconcile.return_value = (
+        GlitchtipProjectAlertsTaskResult(
+            status=TaskStatus.FAILED,
+            actions=[action, _make_action(alert_name="alert-2")],
+            applied_actions=[action],
+            applied_count=1,
+            errors=["inst/org/proj/alert-2: Failed to execute action create: 500"],
+        )
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-partial"
+
+    _task_func()(mock_self, sample_instances, dry_run=False)
+
+    assert mock_event_manager.publish_event.call_count == 2
+    event_types = {
+        c[0][0].type for c in mock_event_manager.publish_event.call_args_list
+    }
+    assert event_types == {
+        "qontract-api.glitchtip-project-alerts.create",
+        "qontract-api.glitchtip-project-alerts.error",
+    }
+
+
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_event_manager")
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_secret_manager")
+@patch("qontract_api.integrations.glitchtip_project_alerts.tasks.get_cache")
+@patch(
+    "qontract_api.integrations.glitchtip_project_alerts.tasks.GlitchtipProjectAlertsService"
+)
+def test_no_events_published_in_dry_run(
+    mock_service_cls: MagicMock,
+    mock_get_cache: MagicMock,
+    mock_get_secret_manager: MagicMock,
+    mock_get_event_manager: MagicMock,
+    sample_instances: list[GlitchtipInstance],
+) -> None:
+    """No events are published in dry-run mode."""
+    mock_service_cls.return_value.reconcile.return_value = _make_result(
+        applied_actions=[_make_action()],
+        errors=["some error"],
+    )
+    mock_event_manager = MagicMock()
+    mock_get_event_manager.return_value = mock_event_manager
+
+    mock_self = MagicMock()
+    mock_self.request.id = "test-task-dry"
+
+    _task_func()(mock_self, sample_instances, dry_run=True)
+
+    mock_event_manager.publish_event.assert_not_called()

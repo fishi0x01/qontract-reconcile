@@ -7,7 +7,6 @@ Tasks run in Celery workers, separate from the FastAPI application.
 from typing import Any
 
 from celery import Task
-from qontract_utils.events import Event
 
 from qontract_api.cache.factory import get_cache
 from qontract_api.config import settings
@@ -20,7 +19,7 @@ from qontract_api.logger import get_logger
 from qontract_api.models import TaskStatus
 from qontract_api.secret_manager._factory import get_secret_manager
 from qontract_api.slack.domain import SlackWorkspace
-from qontract_api.tasks import celery_app, deduplicated_task
+from qontract_api.tasks import celery_app, deduplicated_task, publish_reconcile_events
 
 logger = get_logger(__name__)
 
@@ -99,17 +98,14 @@ def reconcile_slack_usergroups_task(
             errors=result.errors,
         )
 
-        # Publish events for applied actions (non-dry-run only)
-        if not dry_run and result.applied_count > 0 and event_manager:
-            for action in result.actions:
-                event_manager.publish_event(
-                    Event(
-                        source=__name__,
-                        type=f"qontract-api.slack-usergroups.{action.action_type}",
-                        data=action.model_dump(mode="json"),
-                        datacontenttype="application/json",
-                    )
-                )
+        if not dry_run and event_manager:
+            publish_reconcile_events(
+                event_manager=event_manager,
+                integration="slack-usergroups",
+                source=__name__,
+                applied_actions=result.applied_actions,
+                errors=result.errors,
+            )
 
         return result
 

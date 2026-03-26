@@ -1,11 +1,13 @@
 """Tests for task utilities."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi import HTTPException
 from pydantic import Field
 
 from qontract_api.models import TaskResult, TaskStatus
-from qontract_api.tasks import wait_for_task_completion
+from qontract_api.tasks import publish_reconcile_events, wait_for_task_completion
 
 
 class MockTaskResult(TaskResult):
@@ -98,3 +100,89 @@ async def test_wait_for_task_eventually_completes() -> None:
     assert result.errors == []
     assert result.actions == ["completed"]
     assert call_count >= 3
+
+
+# ---------------------------------------------------------------------------
+# publish_reconcile_events
+# ---------------------------------------------------------------------------
+
+
+def _make_action(action_type: str = "create") -> MagicMock:
+    action = MagicMock()
+    action.action_type = action_type
+    action.model_dump.return_value = {"action_type": action_type}
+    return action
+
+
+def test_publish_reconcile_events_success_events() -> None:
+    """One success event is published per applied action."""
+    event_manager = MagicMock()
+    action = _make_action("add_owner")
+
+    publish_reconcile_events(
+        event_manager=event_manager,
+        integration="github-owners",
+        source="my.module",
+        applied_actions=[action],
+        errors=[],
+    )
+
+    event_manager.publish_event.assert_called_once()
+    published = event_manager.publish_event.call_args[0][0]
+    assert published.type == "qontract-api.github-owners.add_owner"
+    assert published.source == "my.module"
+    assert published.data == {"action_type": "add_owner"}
+
+
+def test_publish_reconcile_events_error_events() -> None:
+    """One error event is published per error."""
+    event_manager = MagicMock()
+
+    publish_reconcile_events(
+        event_manager=event_manager,
+        integration="slack-usergroups",
+        source="my.module",
+        applied_actions=[],
+        errors=["workspace-1/oncall: Slack API error"],
+    )
+
+    event_manager.publish_event.assert_called_once()
+    published = event_manager.publish_event.call_args[0][0]
+    assert published.type == "qontract-api.slack-usergroups.error"
+    assert published.data == {"error": "workspace-1/oncall: Slack API error"}
+
+
+def test_publish_reconcile_events_both_types() -> None:
+    """Both success and error events are published on partial failure."""
+    event_manager = MagicMock()
+    action = _make_action("create")
+
+    publish_reconcile_events(
+        event_manager=event_manager,
+        integration="glitchtip-project-alerts",
+        source="my.module",
+        applied_actions=[action],
+        errors=["inst/org/proj/alert: 500"],
+    )
+
+    assert event_manager.publish_event.call_count == 2
+    types = {c[0][0].type for c in event_manager.publish_event.call_args_list}
+    assert types == {
+        "qontract-api.glitchtip-project-alerts.create",
+        "qontract-api.glitchtip-project-alerts.error",
+    }
+
+
+def test_publish_reconcile_events_no_events_when_empty() -> None:
+    """No events are published when both lists are empty."""
+    event_manager = MagicMock()
+
+    publish_reconcile_events(
+        event_manager=event_manager,
+        integration="github-owners",
+        source="my.module",
+        applied_actions=[],
+        errors=[],
+    )
+
+    event_manager.publish_event.assert_not_called()

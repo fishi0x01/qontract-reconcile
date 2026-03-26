@@ -3,19 +3,76 @@
 # ruff: noqa: PLR6301, ARG002
 import asyncio
 import time
-from collections.abc import Callable
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
+
+if TYPE_CHECKING:
+    from qontract_api.event_manager import EventManager
 
 from billiard.einfo import ExceptionInfo
 from celery import Task, states
 from celery.result import AsyncResult
 from fastapi import HTTPException, status
 from hvac.exceptions import VaultError
+from qontract_utils.events import Event
 
 from qontract_api.logger import get_logger
 from qontract_api.models import TaskStatus
 
 logger = get_logger(__name__)
+
+
+class ReconcileAction(Protocol):
+    """Protocol for reconciliation actions that can be published as events."""
+
+    @property
+    def action_type(self) -> str:
+        """Discriminator value used as the event type suffix."""
+        ...
+
+    def model_dump(self, *, mode: str) -> dict:
+        """Serialize the action to a plain dict for event payloads."""
+        ...
+
+
+def publish_reconcile_events(
+    event_manager: "EventManager",
+    integration: str,
+    source: str,
+    applied_actions: Sequence[ReconcileAction],
+    errors: Sequence[str],
+) -> None:
+    """Publish success and error events for a completed reconciliation task.
+
+    Publishes one event per successfully applied action and one error event per
+    reconciliation error. Must only be called in non-dry-run mode.
+
+    Args:
+        event_manager: Event manager instance (must not be None).
+        integration: Integration name used as the event type prefix
+                     (e.g. "slack-usergroups", "github-owners").
+        source: Module name for the event source field (pass ``__name__``).
+        applied_actions: Actions that were successfully applied.
+        errors: Error messages from failed actions or setup failures.
+    """
+    for action in applied_actions:
+        event_manager.publish_event(
+            Event(
+                source=source,
+                type=f"qontract-api.{integration}.{action.action_type}",
+                data=action.model_dump(mode="json"),
+                datacontenttype="application/json",
+            )
+        )
+    for error in errors:
+        event_manager.publish_event(
+            Event(
+                source=source,
+                type=f"qontract-api.{integration}.error",
+                data={"error": error},
+                datacontenttype="application/json",
+            )
+        )
 
 
 @runtime_checkable

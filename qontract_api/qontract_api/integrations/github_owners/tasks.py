@@ -7,7 +7,6 @@ owner membership. Tasks run in Celery workers, separate from the FastAPI app.
 from typing import Any
 
 from celery import Task
-from qontract_utils.events import Event
 
 from qontract_api.cache.factory import get_cache
 from qontract_api.config import settings
@@ -19,7 +18,7 @@ from qontract_api.integrations.github_owners.service import GithubOwnersService
 from qontract_api.logger import get_logger
 from qontract_api.models import TaskStatus
 from qontract_api.secret_manager._factory import get_secret_manager
-from qontract_api.tasks import celery_app, deduplicated_task
+from qontract_api.tasks import celery_app, deduplicated_task, publish_reconcile_events
 
 logger = get_logger(__name__)
 
@@ -101,32 +100,13 @@ def reconcile_github_owners_task(
         )
 
         if not dry_run and event_manager:
-            # Publish one event per successfully applied action.
-            # result.applied_actions excludes actions that failed to execute,
-            # preventing spurious success events for partial failures.
-            for action in result.applied_actions:
-                event_manager.publish_event(
-                    Event(
-                        source=__name__,
-                        type=f"qontract-api.github-owners.{action.action_type}",
-                        data=action.model_dump(mode="json"),
-                        datacontenttype="application/json",
-                    )
-                )
-
-            # Publish one error event per reconciliation error so that failures
-            # are visible in the event stream. In non-dry-run mode the client
-            # integration does not wait for the task result, so errors would
-            # otherwise be silent outside of worker logs.
-            for error in result.errors:
-                event_manager.publish_event(
-                    Event(
-                        source=__name__,
-                        type="qontract-api.github-owners.error",
-                        data={"error": error},
-                        datacontenttype="application/json",
-                    )
-                )
+            publish_reconcile_events(
+                event_manager=event_manager,
+                integration="github-owners",
+                source=__name__,
+                applied_actions=result.applied_actions,
+                errors=result.errors,
+            )
 
         return result
 

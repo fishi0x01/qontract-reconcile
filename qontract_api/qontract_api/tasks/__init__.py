@@ -15,6 +15,7 @@ from qontract_api.tasks._deduplication import deduplicated_task
 from qontract_api.tasks._utils import (
     BackgroundTask,
     get_celery_task_result,
+    publish_reconcile_events,
     wait_for_task_completion,
 )
 
@@ -144,6 +145,7 @@ __all__ = [
     "deduplicated_task",
     "get_celery_task_result",
     "get_logger",
+    "publish_reconcile_events",
     "setup_logger",
     "wait_for_task_completion",
 ]
