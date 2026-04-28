@@ -151,7 +151,7 @@ def run_for_provider(
             use_jump_host=use_jump_host,
             integration=integration,
             integration_version=integration_version,
-            override_managed_types=["Probe"],
+            override_managed_types=["Probe.monitoring.coreos.com"],
         )
         if defer:
             defer(oc_map.cleanup)
