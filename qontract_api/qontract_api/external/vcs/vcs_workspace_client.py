@@ -2,7 +2,7 @@
 
 from qontract_utils.vcs.models import RepoOwners
 from qontract_utils.vcs.owners_parser import OwnersParser
-from qontract_utils.vcs.vcs_client import VCSClient
+from qontract_utils.vcs.provider_protocol import CreateMergeRequestInput
 
 from qontract_api.cache import CacheBackend
 from qontract_api.config import Settings
@@ -20,7 +20,6 @@ class VCSWorkspaceClient:
         provider_factory: VCS provider factory for creating API clients
         cache: Cache backend for distributed cache
         settings: Application settings with VCS configuration
-        ref: Git reference (branch, tag, commit SHA)
 
     Example:
         >>> factory = VCSProviderFactory(registry, cache, settings, token_providers)
@@ -39,7 +38,6 @@ class VCSWorkspaceClient:
         provider_factory: VCSProviderFactory,
         cache: CacheBackend,
         settings: Settings,
-        ref: str = "master",
     ) -> None:
         """Initialize VCS workspace client.
 
@@ -48,26 +46,17 @@ class VCSWorkspaceClient:
             provider_factory: VCS provider factory (dependency injection)
             cache: Cache backend
             settings: Application settings
-            ref: Git reference
         """
         self.repo_url = repo_url
         self._cache = cache
         self._settings = settings
-        self._ref = ref
 
         # Provider factory creates API client with rate limiting
         self._api_client, provider_name = provider_factory.create_api_client(repo_url)
 
-        # VCS client with dependency injection
-        self._vcs_client = VCSClient(
-            api_client=self._api_client,
-            provider_name=provider_name,
-            ref=ref,
-        )
-
         self.provider_name = provider_name
 
-    def get_owners(self, owners_file: str, ref: str = "master") -> RepoOwners:
+    def get_owners(self, owners_file: str, ref: str) -> RepoOwners:
         """Get OWNERS data for repository path with caching.
 
         Implements two-tier caching with distributed locking:
@@ -91,8 +80,7 @@ class VCSWorkspaceClient:
             return cached_owners
 
         # Cache miss - acquire lock and fetch from API
-        lock_key = f"{cache_key}:lock"
-        with self._cache.lock(lock_key, timeout=30):
+        with self._cache.lock(cache_key, timeout=30):
             # Double-check cache after acquiring lock (another process may have updated it)
             cached_owners = self._cache.get_obj(cache_key, RepoOwners)
             if cached_owners is not None:
@@ -109,6 +97,46 @@ class VCSWorkspaceClient:
             )
 
             return owners
+
+    def find_merge_request(self, title: str) -> str | None:
+        """Find an open merge request by title.
+
+        Args:
+            title: MR title to search for (exact match)
+
+        Returns:
+            URL of the open merge request, or None if not found
+
+        """
+        return self._api_client.find_merge_request(title)
+
+    def create_merge_request(self, mr_input: CreateMergeRequestInput) -> str:
+        """Create a merge request with file changes.
+
+        Delegates to the underlying VCS API client.
+
+        Args:
+            mr_input: Merge request details including file operations
+
+        Returns:
+            URL of the created merge request
+
+        """
+        return self._api_client.create_merge_request(mr_input)
+
+    def get_file(self, path: str, ref: str) -> str | None:
+        """Get file content from repository.
+
+        Delegates to the underlying VCS API client (no caching).
+
+        Args:
+            path: File path relative to repository root
+            ref: Git reference (branch, tag, commit SHA)
+
+        Returns:
+            File content as string, or None if not found
+        """
+        return self._api_client.get_file(path, ref=ref)
 
     def _fetch_owners(self, owners_file: str, ref: str) -> RepoOwners:
         """Fetch OWNERS data from VCS API.

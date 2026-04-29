@@ -17,7 +17,7 @@ def _get_kwargs(
     version: int | None | Unset = UNSET,
     repo_url: str,
     owners_file: str | Unset = "/OWNERS",
-    ref: str | Unset = "master",
+    ref: str,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -81,40 +81,21 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     secret_manager_url: str,
     path: str,
     field: None | str | Unset = UNSET,
     version: int | None | Unset = UNSET,
     repo_url: str,
     owners_file: str | Unset = "/OWNERS",
-    ref: str | Unset = "master",
+    ref: str,
 ) -> Response[RepoOwnersResponse]:
-    r"""Get Repo Owners
+    """Get Repo Owners
 
      Get OWNERS file data from a Git repository.
 
     Fetches OWNERS file approvers and reviewers from GitHub or GitLab repositories.
     Results are cached for performance (TTL configured in settings).
-
-    Args:
-        params: VCSQueryParams with repo_url, owners_file, ref, and secret reference
-
-    Returns:
-        RepoOwnersResponse with provider type, approvers, and reviewers lists
-
-    Raises:
-        HTTPException:
-            - 500 Internal Server Error: If VCS API call fails or tokens not found
-
-    Example:
-        GET /api/v1/external/vcs/repos/owners?url=https://github.com/openshift/osdctl&path=/&ref=master
-        Response:
-        {
-            \"provider\": \"github\",
-            \"approvers\": [\"github_user1\", \"github_user2\"],
-            \"reviewers\": [\"github_user3\"]
-        }
 
     Args:
         secret_manager_url (str): Secret Manager URL
@@ -124,7 +105,7 @@ def sync_detailed(
         repo_url (str): Repository URL (e.g., https://github.com/owner/repo)
         owners_file (str | Unset): Path to OWNERS file in the repository (e.g., /OWNERS or
             /path/to/OWNERS) Default: '/OWNERS'.
-        ref (str | Unset): Git reference (branch, tag, commit SHA) Default: 'master'.
+        ref (str): Git reference (branch, tag, commit SHA)
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,40 +134,21 @@ def sync_detailed(
 
 def sync(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     secret_manager_url: str,
     path: str,
     field: None | str | Unset = UNSET,
     version: int | None | Unset = UNSET,
     repo_url: str,
     owners_file: str | Unset = "/OWNERS",
-    ref: str | Unset = "master",
+    ref: str,
 ) -> RepoOwnersResponse:
-    r"""Get Repo Owners
+    """Get Repo Owners
 
      Get OWNERS file data from a Git repository.
 
     Fetches OWNERS file approvers and reviewers from GitHub or GitLab repositories.
     Results are cached for performance (TTL configured in settings).
-
-    Args:
-        params: VCSQueryParams with repo_url, owners_file, ref, and secret reference
-
-    Returns:
-        RepoOwnersResponse with provider type, approvers, and reviewers lists
-
-    Raises:
-        HTTPException:
-            - 500 Internal Server Error: If VCS API call fails or tokens not found
-
-    Example:
-        GET /api/v1/external/vcs/repos/owners?url=https://github.com/openshift/osdctl&path=/&ref=master
-        Response:
-        {
-            \"provider\": \"github\",
-            \"approvers\": [\"github_user1\", \"github_user2\"],
-            \"reviewers\": [\"github_user3\"]
-        }
 
     Args:
         secret_manager_url (str): Secret Manager URL
@@ -196,7 +158,7 @@ def sync(
         repo_url (str): Repository URL (e.g., https://github.com/owner/repo)
         owners_file (str | Unset): Path to OWNERS file in the repository (e.g., /OWNERS or
             /path/to/OWNERS) Default: '/OWNERS'.
-        ref (str | Unset): Git reference (branch, tag, commit SHA) Default: 'master'.
+        ref (str): Git reference (branch, tag, commit SHA)
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -223,40 +185,21 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     secret_manager_url: str,
     path: str,
     field: None | str | Unset = UNSET,
     version: int | None | Unset = UNSET,
     repo_url: str,
     owners_file: str | Unset = "/OWNERS",
-    ref: str | Unset = "master",
+    ref: str,
 ) -> Response[RepoOwnersResponse]:
-    r"""Get Repo Owners
+    """Get Repo Owners
 
      Get OWNERS file data from a Git repository.
 
     Fetches OWNERS file approvers and reviewers from GitHub or GitLab repositories.
     Results are cached for performance (TTL configured in settings).
-
-    Args:
-        params: VCSQueryParams with repo_url, owners_file, ref, and secret reference
-
-    Returns:
-        RepoOwnersResponse with provider type, approvers, and reviewers lists
-
-    Raises:
-        HTTPException:
-            - 500 Internal Server Error: If VCS API call fails or tokens not found
-
-    Example:
-        GET /api/v1/external/vcs/repos/owners?url=https://github.com/openshift/osdctl&path=/&ref=master
-        Response:
-        {
-            \"provider\": \"github\",
-            \"approvers\": [\"github_user1\", \"github_user2\"],
-            \"reviewers\": [\"github_user3\"]
-        }
 
     Args:
         secret_manager_url (str): Secret Manager URL
@@ -266,7 +209,7 @@ async def asyncio_detailed(
         repo_url (str): Repository URL (e.g., https://github.com/owner/repo)
         owners_file (str | Unset): Path to OWNERS file in the repository (e.g., /OWNERS or
             /path/to/OWNERS) Default: '/OWNERS'.
-        ref (str | Unset): Git reference (branch, tag, commit SHA) Default: 'master'.
+        ref (str): Git reference (branch, tag, commit SHA)
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -293,40 +236,21 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: AuthenticatedClient | Client,
+    client: AuthenticatedClient,
     secret_manager_url: str,
     path: str,
     field: None | str | Unset = UNSET,
     version: int | None | Unset = UNSET,
     repo_url: str,
     owners_file: str | Unset = "/OWNERS",
-    ref: str | Unset = "master",
+    ref: str,
 ) -> RepoOwnersResponse:
-    r"""Get Repo Owners
+    """Get Repo Owners
 
      Get OWNERS file data from a Git repository.
 
     Fetches OWNERS file approvers and reviewers from GitHub or GitLab repositories.
     Results are cached for performance (TTL configured in settings).
-
-    Args:
-        params: VCSQueryParams with repo_url, owners_file, ref, and secret reference
-
-    Returns:
-        RepoOwnersResponse with provider type, approvers, and reviewers lists
-
-    Raises:
-        HTTPException:
-            - 500 Internal Server Error: If VCS API call fails or tokens not found
-
-    Example:
-        GET /api/v1/external/vcs/repos/owners?url=https://github.com/openshift/osdctl&path=/&ref=master
-        Response:
-        {
-            \"provider\": \"github\",
-            \"approvers\": [\"github_user1\", \"github_user2\"],
-            \"reviewers\": [\"github_user3\"]
-        }
 
     Args:
         secret_manager_url (str): Secret Manager URL
@@ -336,7 +260,7 @@ async def asyncio(
         repo_url (str): Repository URL (e.g., https://github.com/owner/repo)
         owners_file (str | Unset): Path to OWNERS file in the repository (e.g., /OWNERS or
             /path/to/OWNERS) Default: '/OWNERS'.
-        ref (str | Unset): Git reference (branch, tag, commit SHA) Default: 'master'.
+        ref (str): Git reference (branch, tag, commit SHA)
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

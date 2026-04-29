@@ -129,6 +129,214 @@
         "title": "EscalationPolicyUsersResponse",
         "type": "object"
       },
+      "FileSyncCreate": {
+        "description": "Create a new file in the repository.",
+        "properties": {
+          "action": {
+            "const": "create",
+            "default": "create",
+            "title": "Action",
+            "type": "string"
+          },
+          "commit_message": {
+            "description": "Commit message for this change",
+            "title": "Commit Message",
+            "type": "string"
+          },
+          "content": {
+            "description": "File content",
+            "title": "Content",
+            "type": "string"
+          },
+          "path": {
+            "description": "File path in the repository",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content",
+          "commit_message"
+        ],
+        "title": "FileSyncCreate",
+        "type": "object"
+      },
+      "FileSyncDelete": {
+        "description": "Delete a file from the repository.",
+        "properties": {
+          "action": {
+            "const": "delete",
+            "default": "delete",
+            "title": "Action",
+            "type": "string"
+          },
+          "commit_message": {
+            "description": "Commit message for this change",
+            "title": "Commit Message",
+            "type": "string"
+          },
+          "path": {
+            "description": "File path in the repository",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "commit_message"
+        ],
+        "title": "FileSyncDelete",
+        "type": "object"
+      },
+      "FileSyncRequest": {
+        "description": "Request to reconcile file state in a VCS repository.\n\nDeduplicates by MR title and creates a merge request with the\ngiven file operations. Relies on the VCS provider for validation.",
+        "properties": {
+          "auto_merge": {
+            "default": false,
+            "description": "Whether to enable auto-merge",
+            "title": "Auto Merge",
+            "type": "boolean"
+          },
+          "description": {
+            "default": "",
+            "description": "Merge request description",
+            "title": "Description",
+            "type": "string"
+          },
+          "file_operations": {
+            "description": "File operations to reconcile",
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "create": "#/components/schemas/FileSyncCreate",
+                  "delete": "#/components/schemas/FileSyncDelete",
+                  "update": "#/components/schemas/FileSyncUpdate"
+                },
+                "propertyName": "action"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FileSyncCreate"
+                },
+                {
+                  "$ref": "#/components/schemas/FileSyncUpdate"
+                },
+                {
+                  "$ref": "#/components/schemas/FileSyncDelete"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "File Operations",
+            "type": "array"
+          },
+          "labels": {
+            "description": "Labels to apply to the MR",
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "repo_url": {
+            "description": "Repository URL (e.g., https://gitlab.com/group/project)",
+            "title": "Repo Url",
+            "type": "string"
+          },
+          "target_branch": {
+            "description": "Target branch name",
+            "title": "Target Branch",
+            "type": "string"
+          },
+          "title": {
+            "description": "Merge request title (used for deduplication)",
+            "title": "Title",
+            "type": "string"
+          },
+          "token": {
+            "$ref": "#/components/schemas/Secret",
+            "description": "Secret reference for VCS API token"
+          }
+        },
+        "required": [
+          "repo_url",
+          "token",
+          "title",
+          "target_branch",
+          "file_operations"
+        ],
+        "title": "FileSyncRequest",
+        "type": "object"
+      },
+      "FileSyncResponse": {
+        "description": "Response from file sync reconciliation.",
+        "properties": {
+          "mr_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "URL of the created or existing merge request",
+            "title": "Mr Url"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FileSyncStatus",
+            "description": "Reconciliation outcome"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FileSyncResponse",
+        "type": "object"
+      },
+      "FileSyncStatus": {
+        "description": "Outcome of a file sync reconciliation.",
+        "enum": [
+          "mr_created",
+          "mr_exists"
+        ],
+        "title": "FileSyncStatus",
+        "type": "string"
+      },
+      "FileSyncUpdate": {
+        "description": "Update an existing file in the repository.",
+        "properties": {
+          "action": {
+            "const": "update",
+            "default": "update",
+            "title": "Action",
+            "type": "string"
+          },
+          "commit_message": {
+            "description": "Commit message for this change",
+            "title": "Commit Message",
+            "type": "string"
+          },
+          "content": {
+            "description": "New file content",
+            "title": "Content",
+            "type": "string"
+          },
+          "path": {
+            "description": "File path in the repository",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content",
+          "commit_message"
+        ],
+        "title": "FileSyncUpdate",
+        "type": "object"
+      },
       "GIInstance": {
         "description": "Glitchtip instance configuration with desired state.",
         "properties": {
@@ -269,6 +477,21 @@
           "slug"
         ],
         "title": "GIProject",
+        "type": "object"
+      },
+      "GetFileResponse": {
+        "description": "Response with file content from a VCS repository.",
+        "properties": {
+          "content": {
+            "description": "File content as string",
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "GetFileResponse",
         "type": "object"
       },
       "GithubOrgDesiredState": {
@@ -1764,6 +1987,63 @@
         "title": "HealthStatus",
         "type": "object"
       },
+      "LdapDirectSecret": {
+        "description": "VaultSecret reference for FreeIPA direct LDAP access.\n\nThe referenced Vault path must contain bind_dn and bind_password fields.\nNo plain credentials are transmitted via API -- only Vault path references.\n\nAttributes:\n    server_url: LDAP server URL (e.g., \"ldap://freeipa.example.com\")\n    base_dn: Base DN for LDAP searches (e.g., \"dc=example,dc=com\")\n    (inherited) secret_manager_url, path, field, version: Vault secret ref",
+        "properties": {
+          "base_dn": {
+            "description": "Base DN for LDAP searches",
+            "title": "Base Dn",
+            "type": "string"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Specific field within the secret",
+            "title": "Field"
+          },
+          "path": {
+            "description": "Path to the secret",
+            "title": "Path",
+            "type": "string"
+          },
+          "secret_manager_url": {
+            "description": "Secret Manager URL",
+            "title": "Secret Manager Url",
+            "type": "string"
+          },
+          "server_url": {
+            "description": "LDAP server URL",
+            "title": "Server Url",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Version of the secret",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "secret_manager_url",
+          "path",
+          "server_url",
+          "base_dn"
+        ],
+        "title": "LdapDirectSecret",
+        "type": "object"
+      },
       "LdapGroupMember": {
         "description": "A member of an LDAP group.\n\nAttributes:\n    id: Member identifier (username or email)",
         "properties": {
@@ -1792,6 +2072,65 @@
           }
         },
         "title": "LdapGroupMembersResponse",
+        "type": "object"
+      },
+      "LdapUserStatus": {
+        "description": "Existence status of a single LDAP user.",
+        "properties": {
+          "exists": {
+            "description": "Whether the user exists in LDAP",
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "username": {
+            "description": "Username",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "exists"
+        ],
+        "title": "LdapUserStatus",
+        "type": "object"
+      },
+      "LdapUsersCheckRequest": {
+        "description": "Request to check which usernames exist in LDAP.",
+        "properties": {
+          "secret": {
+            "$ref": "#/components/schemas/LdapDirectSecret",
+            "description": "Vault secret reference for LDAP credentials"
+          },
+          "usernames": {
+            "description": "Usernames to check",
+            "items": {
+              "type": "string"
+            },
+            "title": "Usernames",
+            "type": "array"
+          }
+        },
+        "required": [
+          "usernames",
+          "secret"
+        ],
+        "title": "LdapUsersCheckRequest",
+        "type": "object"
+      },
+      "LdapUsersCheckResponse": {
+        "description": "Response with existence status per username.",
+        "properties": {
+          "users": {
+            "description": "Existence status for each requested username",
+            "items": {
+              "$ref": "#/components/schemas/LdapUserStatus"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "title": "LdapUsersCheckResponse",
         "type": "object"
       },
       "PagerDutyUser": {
@@ -2264,7 +2603,7 @@
         "type": "string"
       },
       "VCSProvider": {
-        "description": "VCS provider types.\n\nExtensible enum for supported VCS providers.",
+        "description": "VCS provider types.",
         "enum": [
           "github",
           "gitlab"
@@ -2439,7 +2778,49 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Group Members",
+        "tags": [
+          "external"
+        ]
+      }
+    },
+    "/api/v1/external/ldap/users/check": {
+      "post": {
+        "description": "Check which usernames exist in LDAP (cached, FreeIPA-authenticated).\n\nQueries LDAP directly using FreeIPA service account credentials\nresolved from Vault. Results are cached for performance.\n\nArgs:\n    request: Request with usernames to check and Vault secret reference\n    cache: Cache dependency\n    secret_manager: Secret manager dependency\n\nReturns:\n    LdapUsersCheckResponse with existence status per username",
+        "operationId": "ldap-users-check",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LdapUsersCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LdapUsersCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Check Users Exist",
         "tags": [
           "external"
         ]
@@ -2664,9 +3045,169 @@
         ]
       }
     },
+    "/api/v1/external/vcs/file-sync": {
+      "post": {
+        "description": "Reconcile file states in a VCS repository.\n\nCreates a merge request with the given file operations,\ndeduplicating by MR title. Does not read current file state \u2014\nrelies on GitLab/GitHub for validation.",
+        "operationId": "vcs-file-sync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileSyncResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "File Sync",
+        "tags": [
+          "external"
+        ]
+      }
+    },
+    "/api/v1/external/vcs/repos/file": {
+      "get": {
+        "description": "Read a file from a VCS repository.",
+        "operationId": "vcs-get-file",
+        "parameters": [
+          {
+            "description": "Secret Manager URL",
+            "in": "query",
+            "name": "secret_manager_url",
+            "required": true,
+            "schema": {
+              "description": "Secret Manager URL",
+              "title": "Secret Manager Url",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path to the secret",
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "description": "Path to the secret",
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Specific field within the secret",
+            "in": "query",
+            "name": "field",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Specific field within the secret",
+              "title": "Field"
+            }
+          },
+          {
+            "description": "Version of the secret",
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Version of the secret",
+              "title": "Version"
+            }
+          },
+          {
+            "description": "Repository URL (e.g., https://gitlab.com/group/project)",
+            "in": "query",
+            "name": "repo_url",
+            "required": true,
+            "schema": {
+              "description": "Repository URL (e.g., https://gitlab.com/group/project)",
+              "title": "Repo Url",
+              "type": "string"
+            }
+          },
+          {
+            "description": "File path in the repository",
+            "in": "query",
+            "name": "file_path",
+            "required": true,
+            "schema": {
+              "description": "File path in the repository",
+              "title": "File Path",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Git reference (branch, tag, SHA)",
+            "in": "query",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "description": "Git reference (branch, tag, SHA)",
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "File not found in the repository"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get File",
+        "tags": [
+          "external"
+        ]
+      }
+    },
     "/api/v1/external/vcs/repos/owners": {
       "get": {
-        "description": "Get OWNERS file data from a Git repository.\n\nFetches OWNERS file approvers and reviewers from GitHub or GitLab repositories.\nResults are cached for performance (TTL configured in settings).\n\nArgs:\n    params: VCSQueryParams with repo_url, owners_file, ref, and secret reference\n\nReturns:\n    RepoOwnersResponse with provider type, approvers, and reviewers lists\n\nRaises:\n    HTTPException:\n        - 500 Internal Server Error: If VCS API call fails or tokens not found\n\nExample:\n    GET /api/v1/external/vcs/repos/owners?url=https://github.com/openshift/osdctl&path=/&ref=master\n    Response:\n    {\n        \"provider\": \"github\",\n        \"approvers\": [\"github_user1\", \"github_user2\"],\n        \"reviewers\": [\"github_user3\"]\n    }",
+        "description": "Get OWNERS file data from a Git repository.\n\nFetches OWNERS file approvers and reviewers from GitHub or GitLab repositories.\nResults are cached for performance (TTL configured in settings).",
         "operationId": "vcs-repo-owners",
         "parameters": [
           {
@@ -2754,9 +3295,8 @@
             "description": "Git reference (branch, tag, commit SHA)",
             "in": "query",
             "name": "ref",
-            "required": false,
+            "required": true,
             "schema": {
-              "default": "master",
               "description": "Git reference (branch, tag, commit SHA)",
               "title": "Ref",
               "type": "string"
@@ -2775,6 +3315,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Repo Owners",
         "tags": [
           "external"

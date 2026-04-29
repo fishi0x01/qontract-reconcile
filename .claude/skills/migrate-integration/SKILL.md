@@ -7,10 +7,11 @@ description: Migrate a reconcile/ integration to the qontract-api architecture. 
 
 Guide the migration of an existing `reconcile/` integration to the qontract-api architecture. This skill analyzes the existing integration, creates a migration plan, and generates all required code in phases.
 
-Two successful migrations serve as reference implementations:
+Successful migrations serve as reference implementations:
 
-- `slack_usergroups` -> `slack_usergroups_api`
-- `glitchtip_project_alerts` -> `glitchtip_project_alerts_api`
+- `slack_usergroups` -> `slack_usergroups_api` (Pattern 1: full server-side)
+- `glitchtip_project_alerts` -> `glitchtip_project_alerts_api` (Pattern 1: full server-side)
+- `glitchtip` -> `glitchtip_api` (Pattern 1: full server-side)
 
 ## Input
 
@@ -305,10 +306,12 @@ After creating server-side routers (integration + external), regenerate the API 
 ## Phase 4: Client-Side Integration (reconcile/)
 
 > **Prerequisite:** The API client must be regenerated before starting this phase. Run after Phase 2, and again after Phase 3 if external endpoints were added:
+>
 > ```bash
 > cd qontract_api && make generate-openapi-spec
 > cd qontract_api_client && make generate-client
 > ```
+>
 > This creates typed Python client functions matching all new endpoints.
 
 Following ADR-008 (QontractReconcileApiIntegration pattern).
@@ -448,6 +451,7 @@ git commit -m "<integration-name>-api: phase N - <short description>"
 ```
 
 Examples:
+
 - `aws-account-manager-api: phase 1 - shared utilities`
 - `aws-account-manager-api: phase 2 - server-side integration`
 - `aws-account-manager-api: phase 3 - external endpoints`

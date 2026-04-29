@@ -3,6 +3,13 @@
 from .chat_request import ChatRequest
 from .chat_response import ChatResponse
 from .escalation_policy_users_response import EscalationPolicyUsersResponse
+from .file_sync_create import FileSyncCreate
+from .file_sync_delete import FileSyncDelete
+from .file_sync_request import FileSyncRequest
+from .file_sync_response import FileSyncResponse
+from .file_sync_status import FileSyncStatus
+from .file_sync_update import FileSyncUpdate
+from .get_file_response import GetFileResponse
 from .gi_instance import GIInstance
 from .gi_organization import GIOrganization
 from .gi_project import GIProject
@@ -49,8 +56,12 @@ from .health_response import HealthResponse
 from .health_response_components import HealthResponseComponents
 from .health_status import HealthStatus
 from .http_validation_error import HTTPValidationError
+from .ldap_direct_secret import LdapDirectSecret
 from .ldap_group_member import LdapGroupMember
 from .ldap_group_members_response import LdapGroupMembersResponse
+from .ldap_user_status import LdapUserStatus
+from .ldap_users_check_request import LdapUsersCheckRequest
+from .ldap_users_check_response import LdapUsersCheckResponse
 from .liveness_response_liveness import LivenessResponseLiveness
 from .pager_duty_user import PagerDutyUser
 from .recipient_type import RecipientType
@@ -74,9 +85,16 @@ __all__ = (
     "ChatRequest",
     "ChatResponse",
     "EscalationPolicyUsersResponse",
+    "FileSyncCreate",
+    "FileSyncDelete",
+    "FileSyncRequest",
+    "FileSyncResponse",
+    "FileSyncStatus",
+    "FileSyncUpdate",
     "GIInstance",
     "GIOrganization",
     "GIProject",
+    "GetFileResponse",
     "GithubOrgDesiredState",
     "GithubOwnerActionAddOwner",
     "GithubOwnersReconcileRequest",
@@ -116,8 +134,12 @@ __all__ = (
     "HealthResponse",
     "HealthResponseComponents",
     "HealthStatus",
+    "LdapDirectSecret",
     "LdapGroupMember",
     "LdapGroupMembersResponse",
+    "LdapUserStatus",
+    "LdapUsersCheckRequest",
+    "LdapUsersCheckResponse",
     "LivenessResponseLiveness",
     "PagerDutyUser",
     "RecipientType",
