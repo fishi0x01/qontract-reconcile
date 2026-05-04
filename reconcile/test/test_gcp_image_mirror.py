@@ -1,9 +1,11 @@
-from unittest.mock import create_autospec
+from collections.abc import Generator
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 from pytest_mock import MockerFixture, MockFixture
+from sretoolbox.container.skopeo import SkopeoCmdError
 
-from reconcile.gcp_image_mirror import ImageSyncItem, QuayMirror
+from reconcile.gcp_image_mirror import ImageSyncItem, QuayMirror, SyncTask
 from reconcile.gql_definitions.fragments.container_image_mirror import (
     ContainerImageMirror,
 )
@@ -123,3 +125,65 @@ def test_process_repos_to_sync(
             gcp_image_mirror.process_repos_to_sync(repo_query_gql)
             == expected_sync_results
         )
+
+
+@pytest.fixture()
+def gcp_mirror_instance(
+    setup_mocks: None, mocker: MockerFixture
+) -> Generator[tuple[QuayMirror, MagicMock], None, None]:
+    mocker.patch("reconcile.gcp_image_mirror.gql_gcp_repos")
+    with QuayMirror() as qm:
+        mock_skopeo: MagicMock = MagicMock()
+        qm.skopeo_cli = mock_skopeo
+        qm.push_creds = {f"gcr_{TEST_PROJECT_NAME}": "user:token"}
+        yield qm, mock_skopeo
+
+
+def test_run_succeeds_with_no_errors(
+    gcp_mirror_instance: tuple[QuayMirror, MagicMock], mocker: MockerFixture
+) -> None:
+    qm, mock_skopeo = gcp_mirror_instance
+    tasks = [
+        SyncTask(
+            source_url="docker.io/foo:1",
+            dest_url=f"gcr.io/{TEST_PROJECT_NAME}/foo:1",
+            org_name=TEST_PROJECT_NAME,
+        ),
+    ]
+    mocker.patch.object(qm, "process_sync_tasks", return_value=tasks)
+
+    qm.run()
+
+    mock_skopeo.copy.assert_called_once_with(
+        src_image="docker.io/foo:1",
+        src_creds=None,
+        dst_image=f"gcr.io/{TEST_PROJECT_NAME}/foo:1",
+        dest_creds="user:token",
+    )
+
+
+def test_run_raises_exception_group_on_skopeo_error(
+    gcp_mirror_instance: tuple[QuayMirror, MagicMock], mocker: MockerFixture
+) -> None:
+    qm, mock_skopeo = gcp_mirror_instance
+    tasks = [
+        SyncTask(
+            source_url="docker.io/foo:1",
+            dest_url=f"gcr.io/{TEST_PROJECT_NAME}/foo:1",
+            org_name=TEST_PROJECT_NAME,
+        ),
+        SyncTask(
+            source_url="docker.io/foo:2",
+            dest_url=f"gcr.io/{TEST_PROJECT_NAME}/foo:2",
+            org_name=TEST_PROJECT_NAME,
+        ),
+    ]
+    mocker.patch.object(qm, "process_sync_tasks", return_value=tasks)
+    mock_skopeo.copy.side_effect = [SkopeoCmdError("exit code: 1"), None]
+
+    with pytest.raises(ExceptionGroup) as exc_info:
+        qm.run()
+
+    assert mock_skopeo.copy.call_count == 2
+    assert len(exc_info.value.exceptions) == 1
+    assert isinstance(exc_info.value.exceptions[0], SkopeoCmdError)

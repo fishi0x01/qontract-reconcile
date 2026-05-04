@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import tempfile
 from typing import TYPE_CHECKING
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from sretoolbox.container.skopeo import SkopeoCmdError
 
 from reconcile.quay_mirror_org import (
     CONTROL_FILE_NAME,
@@ -100,3 +101,55 @@ def test_quay_mirror_org_session(mocker: MockerFixture) -> None:
         assert quay_mirror_org.session == mocked_request.Session.return_value
 
     mocked_request.Session.return_value.close.assert_called_once_with()
+
+
+@pytest.fixture()
+def quay_mirror_org_instance(mocker: MockerFixture) -> tuple[QuayMirrorOrg, MagicMock]:
+    mocker.patch("reconcile.quay_base.get_quay_api_store", return_value={})
+    mocker.patch("reconcile.quay_mirror_org.requests")
+    qm = QuayMirrorOrg(dry_run=True, compare_tags=False)
+    mock_skopeo: MagicMock = MagicMock()
+    qm.skopeo_cli = mock_skopeo
+    return qm, mock_skopeo
+
+
+def test_run_succeeds_with_no_errors(
+    quay_mirror_org_instance: tuple[QuayMirrorOrg, MagicMock],
+    mocker: MockerFixture,
+) -> None:
+    qm, mock_skopeo = quay_mirror_org_instance
+    mocker.patch.object(qm, "process_sync_tasks", return_value={})
+
+    qm.run()
+
+    mock_skopeo.copy.assert_not_called()
+
+
+def test_run_raises_exception_group_on_skopeo_error(
+    quay_mirror_org_instance: tuple[QuayMirrorOrg, MagicMock],
+    mocker: MockerFixture,
+) -> None:
+    qm, mock_skopeo = quay_mirror_org_instance
+    org_key = ("quay.io", "test-org")
+    tasks = [
+        {
+            "mirror_url": "docker.io/foo:1",
+            "mirror_creds": None,
+            "image_url": "quay.io/test-org/foo:1",
+        },
+        {
+            "mirror_url": "docker.io/foo:2",
+            "mirror_creds": None,
+            "image_url": "quay.io/test-org/foo:2",
+        },
+    ]
+    mocker.patch.object(qm, "process_sync_tasks", return_value={org_key: tasks})
+    mocker.patch.object(qm, "get_push_creds", return_value="user:token")
+    mock_skopeo.copy.side_effect = [SkopeoCmdError("exit code: 1"), None]
+
+    with pytest.raises(ExceptionGroup) as exc_info:
+        qm.run()
+
+    assert mock_skopeo.copy.call_count == 2
+    assert len(exc_info.value.exceptions) == 1
+    assert isinstance(exc_info.value.exceptions[0], SkopeoCmdError)

@@ -127,6 +127,7 @@ class QuayMirror:
         self.session.close()
 
     def run(self) -> None:
+        errors: list[Exception] = []
         sync_tasks = self.process_sync_tasks()
         for org, data in sync_tasks.items():
             for item in data:
@@ -139,9 +140,13 @@ class QuayMirror:
                     )
                 except SkopeoCmdError as details:
                     _LOG.error("skopeo command error message: '%s'", details)
+                    errors.append(details)
 
         if self.is_compare_tags and not self.dry_run:
             record_timestamp(self.control_file_path)
+
+        if errors:
+            raise ExceptionGroup("skopeo copy failures", errors)
 
     @classmethod
     def process_repos_query(
